@@ -1,0 +1,55 @@
+﻿@inherits LayoutComponentBase
+
+@if (modalDisplayShow)
+{
+    <div class="modal-backdrop show"></div>
+
+    <div class="modal" tabindex="-1" style="display:block">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <div class="modal-body text-center">
+                    <div class="text-end">
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="OnClose"></button>
+                    </div>
+                    <div class="px-5">
+                        <h4 class="modal-title mb-4">Log in</h4>
+
+                        <input class="form-control mb-4" placeholder="User Name" @bind="userName" />
+
+                        <input type="password" class="form-control mb-5" placeholder="Password" @bind="password" />
+
+                        <div class="mb-3 d-grid gap-2">
+                            <button class="btn btn-primary" @onclick="OnSend">Login</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+        string userName = string.Empty;
+        string password = string.Empty;
+
+        [Parameter] public EventCallback OnClose { get; set; }
+        [Parameter] public EventCallback<List<string>> OnLogin { get; set; }
+
+    private bool modalDisplayShow = false;
+
+    public void Show() => modalDisplayShow = true;
+    public void Hide() => modalDisplayShow = false;
+    public void ClearInput()
+    {
+        userName = string.Empty;
+        password = string.Empty;
+    }
+
+    private async Task OnSend()
+    {
+        await OnLogin.InvokeAsync(new List<string>() { userName, password });
+    }
+
+}

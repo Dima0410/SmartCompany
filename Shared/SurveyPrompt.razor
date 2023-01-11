@@ -1,0 +1,13 @@
+﻿
+<div class="alert alert-secondary d-inline-flex m-5 px-5 shadow-lg ">
+    <span class="oi oi-pencil me-3" aria-hidden="true"></span>
+    <strong>@Title</strong>
+</div>
+
+
+
+@code {
+    // Demonstrates how a parent component can supply parameters
+    [Parameter]
+    public string? Title { get; set; }
+}

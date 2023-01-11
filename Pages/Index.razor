@@ -1,0 +1,25 @@
+﻿@page "/"
+
+
+<style>
+    body {
+        background-image: linear-gradient(rgba(0,0,0, 0.4), rgba(0,0,0, 0.4)), url(images/frut.jpg);
+        background-size: cover;
+        background-position: center;
+    }
+</style>
+
+<PageTitle>Главная</PageTitle>
+
+
+<AuthorizeView>
+    <NotAuthorized>
+        <SurveyPrompt Title="Для продолжения работы необходимо войти в систему" />
+    </NotAuthorized>
+</AuthorizeView>
+
+
+
+@code {
+    
+}

@@ -1,0 +1,532 @@
+﻿@page "/charts"
+@using System.Collections.Generic
+@using System.Linq
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<DBContextTables> dbFactory
+@inject IJSRuntime ijsRuntime
+@attribute [Authorize(Roles = "Administrator, Director")]
+
+<PageTitle>Аналитика</PageTitle>
+
+
+
+
+<div class="container-fluid px-5">
+    <h3 class="text-center mb-5">Диаграмма доходы/расходы за @DateTime.Now.ToString("MMMM yyyy") г.</h3>
+    <div class="container-fluid p-0" style="width:90%">
+        <canvas id="Chart1"></canvas>
+    </div>
+    <div class="alert @alertColorMonth col-4 text-center mt-5">
+        <div class="row">
+            <div class="col col-7 text-start"><strong>Прибыль:</strong></div>
+            <div class="col text-start"><strong>@profitMonth руб.</strong></div>
+        </div>
+        <div class="row">
+            <div class="col col-7 text-start"><strong>Рентабельность затрат:</strong></div>
+            <div class="col text-start"><strong>@effectMainMonth</strong></div>
+        </div>
+    </div>
+    <p class="font-italic mt-4">* Рентабельность затрат - отношение прибыли к затратам, сколько прибыли приходится на 1 рубль расходов</p>
+    <br />
+
+
+    <h3 class="text-center my-5">Диаграмма доходы/расходы за @DateTime.Now.ToString("yyyy") г.</h3>
+    <div class="container-fluid p-0" style="width:90%">
+        <canvas id="Chart2"></canvas>
+    </div>
+    <div class="alert @alertColorYear col-4 text-center mt-5">
+        <div class="row">
+            <div class="col col-7 text-start"><strong>Прибыль:</strong></div>
+            <div class="col text-start"><strong>@profitYear руб.</strong></div>
+        </div>
+        <div class="row">
+            <div class="col col-7 text-start"><strong>Рентабельность затрат:</strong></div>
+            <div class="col text-start"><strong>@effectMainYear</strong></div>
+        </div>
+    </div>
+    <br />
+    <br />
+
+
+    <h3 class="text-center my-5">Процент дохода по группам товара за @DateTime.Now.ToString("MMMM yyyy") г.</h3>
+    <div class="container-fluid p-0" style="width:40%">
+        <canvas id="Chart3"></canvas>
+    </div>
+    <p>Суммарный доход:</p>
+    <div class="alert alert-success col-3 text-center">
+        <div class="row">
+            <div class="col text-start"><strong>Овощи:</strong></div>
+            <div class="col text-start"><strong>@vegetablesSumMonth руб.</strong></div>
+        </div>
+        <div class="row">
+            <div class="col text-start"><strong>Фрукты:</strong></div>
+            <div class="col text-start"><strong>@frutSumMonth руб.</strong></div>
+        </div>
+        <div class="row">
+            <div class="col text-start"><strong>Прочее:</strong></div>
+            <div class="col text-start"><strong>@otherSumMonth руб.</strong></div>
+        </div>
+    </div>
+    <br />
+    <br />
+
+
+    <h3 class="text-center my-5">Процент дохода по группам товара за @DateTime.Now.ToString("yyyy") г.</h3>
+    <div class="container-fluid p-0" style="width:40%">
+        <canvas id="Chart4"></canvas>
+    </div>
+    <p>Суммарный доход:</p>
+    <div class="alert alert-success col-3 text-center">
+        <div class="row">
+            <div class="col text-start"><strong>Овощи:</strong></div>
+            <div class="col text-start"><strong>@vegetablesSumYear руб.</strong></div>
+        </div>
+        <div class="row">
+            <div class="col text-start"><strong>Фрукты:</strong></div>
+            <div class="col text-start"><strong>@frutSumYear руб.</strong></div>
+        </div>
+        <div class="row">
+            <div class="col text-start"><strong>Прочее:</strong></div>
+            <div class="col text-start"><strong>@otherSumYear руб.</strong></div>
+        </div>
+    </div>
+    <br />
+    <br />
+
+
+    <h3 class="text-center my-5">Процент дохода по группам JDJOB товара за @DateTime.Now.ToString("yyyy") г.</h3>
+    <div class="container-fluid p-0" style="width:40%">
+        <canvas id="Chart5"></canvas>
+    </div>
+
+
+
+
+
+
+</div>
+
+
+
+@code {
+    // Для диаграмм 1-2
+    IEnumerable<int> labelDatesNowMonth = Enumerable.Range(1, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
+    List<string> labelMonthYear = new List<string>() { "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь" };
+    IEnumerable<int> datesListNowMonth = Enumerable.Range(1, DateTime.Now.Day);
+    IEnumerable<int> datesListYear = Enumerable.Range(1, DateTime.Now.Month);
+
+    List<int> resultOutlaysNowMonth = new List<int>();
+    List<int> resultProfitNowMonth = new List<int>();
+
+    List<int> resultOutlaysNowYear = new List<int>();
+    List<int> resultProfitNowYear = new List<int>();
+
+    int profitMonth = 0;
+    double effectMainMonth = 0;
+    string alertColorMonth = string.Empty;
+
+    int profitYear = 0;
+    double effectMainYear = 0;
+    string alertColorYear = string.Empty;
+
+    // Для диаграмм 3-4
+    double resultPercentVegetablesMonth = 0;
+    double resultPercentFrutMonth = 0;
+    double resultPercentOtherMonth = 0;
+
+    double vegetablesSumMonth = 0;
+    double frutSumMonth = 0;
+    double otherSumMonth = 0;
+
+    double resultPercentVegetablesYear = 0;
+    double resultPercentFrutYear = 0;
+    double resultPercentOtherYear = 0;
+
+    double vegetablesSumYear = 0;
+    double frutSumYear = 0;
+    double otherSumYear = 0;
+
+    // Для диаграмм 5-6
+    IEnumerable<StringDouble> vegetablesGroupNameMonth = Array.Empty<StringDouble>();
+
+    List<string?> vegetablesKeyMonth = new List<string?>();
+    List<double> vegetablesValueMonth = new List<double>();
+
+
+
+    List<string> frutLabelMonth = new List<string>();
+
+    List<string> vegetablesLabelYear = new List<string>();
+    List<string> frutLabelYear = new List<string>();
+
+
+    protected override void OnInitialized()
+    {
+        using var context = dbFactory.CreateDbContext();
+
+
+        // Создание диаграммы 1 Доход-Расход за текущий Месяц
+        // Алгоритмы расчета графика 1 Расход
+
+        var purchasesMonth = context.Purchases
+                    .Where(w => w.CreatedDate.Month == DateTime.Now.Month)
+                    .GroupBy(g => g.CreatedDate.Day)
+                    .Select(s => new { s.Key, Value = s.Sum(x => x.Summ) });
+
+        //foreach (var item in purchasesMonth)
+        //{
+        //    Console.WriteLine($"Console purchasesMonth: {item.Key} - {item.Value}");
+        //}
+        //Console.WriteLine("\n");
+
+        var outlaysMonth = context.Outlays
+                    .Where(w => w.CreatedDate.Month == DateTime.Now.Month)
+                    .GroupBy(g => g.CreatedDate.Day)
+                    .Select(s => new { s.Key, Value = s.Sum(x => x.Summ) });
+
+        //foreach (var item in outlaysMonth)
+        //{
+        //    Console.WriteLine($"Console outlays: {item.Key} - {item.Value}");
+        //}
+        //Console.WriteLine("\n");
+
+        var purchasesListMonth = datesListNowMonth.GroupJoin(purchasesMonth,
+                                d => d,
+                                p => p.Key,
+                                (d, os) => new
+                                {
+                                    Key = d,
+                                    Value = os.Sum(x => x.Value)
+                                });
+
+        //foreach (var item in purchasesListMonth)
+        //{
+        //    Console.WriteLine($"Console purchasesListMonth: {item.Key} - {item.Value}");
+        //}
+        //Console.WriteLine("\n");
+
+        var purchasesOutlaysListMonth = purchasesListMonth.GroupJoin(outlaysMonth,
+                                    p => p.Key,
+                                    o => o.Key,
+                                    (a, b) => new
+                                    {
+                                        Key = a.Key,
+                                        Value = a.Value + b.Sum(x => x.Value)
+                                    }).ToList();
+
+        //foreach (var item in purchasesOutlaysListMonth)
+        //{
+        //    Console.WriteLine($"Console Result: {item.Key} - {item.Value}");
+        //}
+        //Console.WriteLine("\n");
+
+        var convertPurchasesOutlaysListMonth = purchasesOutlaysListMonth.ConvertAll(r => (int)r.Value);
+
+        //foreach (var item in convertPurchasesOutlaysListMonth)
+        //{
+        //    Console.WriteLine($"Res: {item}");
+        //}
+        //Console.WriteLine("\n");
+
+        resultOutlaysNowMonth = CumSum(convertPurchasesOutlaysListMonth);
+
+        //foreach (var item in resultOutlaysNowMonth)
+        //{
+        //    Console.WriteLine($"Resuuult: {item}");
+        //}
+        //Console.WriteLine("\n");
+
+
+        // Алгоритмы расчета графика 2 Доход
+
+        var salesMonth = context.Sales
+                    .Where(w => w.CreatedDate.Month == DateTime.Now.Month)
+                    .GroupBy(g => g.CreatedDate.Day)
+                    .Select(s => new { s.Key, Value = s.Sum(x => x.Summ) });
+
+        var profitsMonth = context.Profits
+                     .Where(w => w.CreatedDate.Month == DateTime.Now.Month)
+                     .GroupBy(g => g.CreatedDate.Day)
+                     .Select(s => new { s.Key, Value = s.Sum(x => x.Summ) });
+
+        var salesListMonth = datesListNowMonth.GroupJoin(salesMonth,
+                                d => d,
+                                p => p.Key,
+                                (d, os) => new
+                                {
+                                    Key = d,
+                                    Value = os.Sum(x => x.Value)
+                                });
+
+        var salesProfitListMonth = salesListMonth.GroupJoin(profitsMonth,
+                                    p => p.Key,
+                                    o => o.Key,
+                                    (a, b) => new
+                                    {
+                                        Key = a.Key,
+                                        Value = a.Value + b.Sum(x => x.Value)
+                                    }).ToList();
+
+        var convertSalesProfitListMonth = salesProfitListMonth.ConvertAll(r => (int)r.Value);
+
+        resultProfitNowMonth = CumSum(convertSalesProfitListMonth);
+
+        // Расчет показателей качества
+
+        profitMonth = convertSalesProfitListMonth.Sum() - convertPurchasesOutlaysListMonth.Sum();
+        effectMainMonth = EffectMain(profitMonth, convertPurchasesOutlaysListMonth.Sum());
+        alertColorMonth = AlertColor(profitMonth);
+
+
+        // Создание диаграммы 2 Доход-Расход за текущий Год
+        // Алгоритмы расчета графика 1 Расход
+
+        var purchasesYear = context.Purchases
+                    .Where(w => w.CreatedDate.Year == DateTime.Now.Year)
+                    .GroupBy(g => g.CreatedDate.Month)
+                    .Select(s => new { s.Key, Value = s.Sum(x => x.Summ) });
+
+        var outlaysYear = context.Outlays
+                     .Where(w => w.CreatedDate.Year == DateTime.Now.Year)
+                     .GroupBy(g => g.CreatedDate.Month)
+                     .Select(s => new { s.Key, Value = s.Sum(x => x.Summ) });
+
+        var purchasesListYear = datesListYear.GroupJoin(purchasesYear,
+                                d => d,
+                                p => p.Key,
+                                (d, os) => new
+                                {
+                                    Key = d,
+                                    Value = os.Sum(x => x.Value)
+                                });
+
+        var purchasesOutlaysListYear = purchasesListYear.GroupJoin(outlaysYear,
+                                    p => p.Key,
+                                    o => o.Key,
+                                    (a, b) => new
+                                    {
+                                        Key = a.Key,
+                                        Value = a.Value + b.Sum(x => x.Value)
+                                    }).ToList();
+
+        var convertPurchasesOutlaysListYear = purchasesOutlaysListYear.ConvertAll(r => (int)r.Value);
+
+        resultOutlaysNowYear = CumSum(convertPurchasesOutlaysListYear);
+
+
+        // Алгоритмы расчета графика 2 Доход
+
+        var salesYear = context.Sales
+                    .Where(w => w.CreatedDate.Year == DateTime.Now.Year)
+                    .GroupBy(g => g.CreatedDate.Month)
+                    .Select(s => new { s.Key, Value = s.Sum(x => x.Summ) });
+
+        var profitsYear = context.Profits
+                    .Where(w => w.CreatedDate.Year == DateTime.Now.Year)
+                    .GroupBy(g => g.CreatedDate.Month)
+                    .Select(s => new { s.Key, Value = s.Sum(x => x.Summ) });
+
+        var salesListYear = datesListYear.GroupJoin(salesYear,
+                                d => d,
+                                p => p.Key,
+                                (d, os) => new
+                                {
+                                    Key = d,
+                                    Value = os.Sum(x => x.Value)
+                                });
+
+        var salesProfitListYear = salesListYear.GroupJoin(profitsYear,
+                                    p => p.Key,
+                                    o => o.Key,
+                                    (a, b) => new
+                                    {
+                                        Key = a.Key,
+                                        Value = a.Value + b.Sum(x => x.Value)
+                                    }).ToList();
+
+        var convertSalesProfitListYear = salesProfitListYear.ConvertAll(r => (int)r.Value);
+
+        resultProfitNowYear = CumSum(convertSalesProfitListYear);
+
+
+        // Расчет показателей качества
+
+        profitYear = convertSalesProfitListYear.Sum() - convertPurchasesOutlaysListYear.Sum();
+        effectMainYear = EffectMain(profitYear, convertPurchasesOutlaysListYear.Sum());
+        alertColorYear = AlertColor(profitYear);
+
+
+
+        // Создание диаграммы 3 процент по группам товара за текущий Месяц
+
+        vegetablesSumMonth = context.Sales
+                          .Where(w => w.CreatedDate.Month == DateTime.Now.Month)
+                          .Where(ww => ww.Group == "Овощи")
+                          .Sum(s => s.Summ);
+
+        frutSumMonth = context.Sales
+                          .Where(w => w.CreatedDate.Month == DateTime.Now.Month)
+                          .Where(ww => ww.Group == "Фрукты")
+                          .Sum(s => s.Summ);
+
+        otherSumMonth = context.Sales
+                          .Where(w => w.CreatedDate.Month == DateTime.Now.Month)
+                          .Where(ww => ww.Group == "Прочее")
+                          .Sum(s => s.Summ);
+
+
+        double sumMonth = vegetablesSumMonth + frutSumMonth + otherSumMonth;
+
+        resultPercentVegetablesMonth = Math.Round((vegetablesSumMonth / sumMonth * 100), 1);
+        resultPercentFrutMonth = Math.Round((frutSumMonth / sumMonth * 100), 1);
+        resultPercentOtherMonth = Math.Round((otherSumMonth / sumMonth * 100), 1);
+
+
+        // Создание диаграммы 4 процент по группам товара за текущий Год
+
+        vegetablesSumYear = context.Sales
+                          .Where(w => w.CreatedDate.Year == DateTime.Now.Year)
+                          .Where(ww => ww.Group == "Овощи")
+                          .Sum(s => s.Summ);
+
+        frutSumYear = context.Sales
+                          .Where(w => w.CreatedDate.Year == DateTime.Now.Year)
+                          .Where(ww => ww.Group == "Фрукты")
+                          .Sum(s => s.Summ);
+
+        otherSumYear = context.Sales
+                          .Where(w => w.CreatedDate.Year == DateTime.Now.Year)
+                          .Where(ww => ww.Group == "Прочее")
+                          .Sum(s => s.Summ);
+
+        double sumYear = vegetablesSumYear + frutSumYear + otherSumYear;
+
+        resultPercentVegetablesYear = Math.Round((vegetablesSumYear / sumYear * 100), 1);
+        resultPercentFrutYear = Math.Round((frutSumYear / sumYear * 100), 1);
+        resultPercentOtherYear = Math.Round((otherSumYear / sumYear * 100), 1);
+
+
+        // Создание диаграммы 5 процент по видам для группы Овощи за текущий Месяц
+
+        var vegGroupNameMonth = context.Sales
+                                .Where(w => w.CreatedDate.Month == DateTime.Now.Month)
+                                .Where(ww => ww.Group == "Овощи")
+                                .GroupBy(g => g.Name,
+                                (a, b) => new { Key = a, Value = b.Sum(x => x.Summ) })
+                                .OrderByDescending(o => o.Value)
+                                .ToArray();
+
+        var sumVegMonth = vegGroupNameMonth.Sum(s => s.Value);
+        Console.WriteLine($"Console purchasesMonth: {sumVegMonth}");
+
+        foreach (var item in vegGroupNameMonth)
+        {
+            vegetablesKeyMonth.Add(item.Key);
+            vegetablesValueMonth.Add(Math.Round((item.Value / sumVegMonth * 100), 1));
+        }
+        Console.WriteLine("\n");
+
+        foreach (var item in vegGroupNameMonth)
+        {
+            Console.WriteLine($"Console purchasesMonth: {item.Key} - {item.Value}");
+        }
+        Console.WriteLine("\n");
+        foreach (var item in vegetablesKeyMonth)
+        {
+            Console.WriteLine($"Console : {item}");
+        }
+        Console.WriteLine("\n");
+        foreach (var item in vegetablesValueMonth)
+        {
+            Console.WriteLine($"Console : {item}");
+        }
+        Console.WriteLine("\n");
+
+        //vegetablesLabelMonth = vegGroupMonth
+        //                    .Select(s => s.Key)
+        //                    .ToList();
+
+        //foreach (var item in vegetablesLabelMonth)
+        //{
+        //    Console.WriteLine($"Console purchasesMonth: {item}");
+        //}
+        //Console.WriteLine("\n");
+
+        //vegetablesGroupNameMonth = vegGroupMonth
+        //                        .Select(s => s.Value)
+        //                        .ToList();
+        //foreach (var item in vegetablesSumNameMonth)
+        //{
+        //    Console.WriteLine($"Console : {item}");
+        //}
+        //Console.WriteLine("\n");
+
+
+
+    }
+
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ijsRuntime.InvokeVoidAsync("GenerateChart1", resultProfitNowMonth, resultOutlaysNowMonth, labelDatesNowMonth);
+            await ijsRuntime.InvokeVoidAsync("GenerateChart2", resultProfitNowYear, resultOutlaysNowYear, labelMonthYear);
+            await ijsRuntime.InvokeVoidAsync("GenerateChart3", resultPercentVegetablesMonth, resultPercentFrutMonth, resultPercentOtherMonth);
+            await ijsRuntime.InvokeVoidAsync("GenerateChart4", resultPercentVegetablesYear, resultPercentFrutYear, resultPercentOtherYear);
+            await ijsRuntime.InvokeVoidAsync("GenerateChart5", vegetablesKeyMonth, vegetablesValueMonth);
+        }
+    }
+
+
+
+    private List<int> CumSum(List<int> inputList)
+    {
+        List<int> outputList = new List<int>();
+        int cumSum = 0;
+
+        foreach (var item in inputList)
+        {
+            cumSum += item;
+            outputList.Add(cumSum);
+        }
+
+        return outputList;
+    }
+
+    private string AlertColor(int valueSum)
+    {
+        string str = string.Empty;
+
+        if (valueSum <= 0)
+        {
+            str = "alert-danger";
+        }
+        else
+        {
+            str = "alert-success";
+        }
+
+        return str;
+    }
+
+    private double EffectMain(int data1, int data2)
+    {
+        double valueResult = 0;
+
+        valueResult = (double)data1 / (double)data2;
+
+        return Math.Round(valueResult, 2);
+    }
+
+
+
+    class StringDouble
+    {
+        public string? Key { get; set; }
+        public double Value { get; set; }
+    }
+
+}

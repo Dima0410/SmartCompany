@@ -1,0 +1,220 @@
+﻿@page "/other-profit"
+@using System.Linq
+@inject SmartCompany.Data.Interfaces.IProfit iprofit
+@attribute [Authorize(Roles = "Administrator, Director, Manager")]
+
+
+<PageTitle>Прочие доходы</PageTitle>
+
+
+<div class="container-fluid">
+    <div class="mx-5">
+        <h3 class="text-center mt-4">Внесение прочих доходов</h3>
+
+        @*Ввод данных*@
+        <p class="font-italic mt-5">Внесение доходов в базу данных</p>
+        <div class="alert alert-success py-4" role="alert">
+            <div class="row">
+                <div class="col mx-4">
+                    <label class="form-label">Статья дохода</label>
+                    <input class="form-control" @bind="name" />
+                </div>
+                <div class="col">
+                    <label class="form-label">Сумма, руб.</label>
+                    <input class="form-control" placeholder="Сумма, руб." @bind="summ" />
+                </div>
+                <div class="col mx-4">
+                    <label class="form-label">Примечание</label>
+                    <input class="form-control" @bind="description" />
+                </div>
+            </div>
+            <div class="row text-end">
+                <div class="col mt-4 me-4">
+                    <button class="btn btn-primary" @onclick="(() => { AddProfit(); TotalSumMonth(); TotalSumYear(); })">Сохранить</button>
+                </div>
+            </div>
+        </div>
+        <p class="text-danger">@textError</p>
+
+
+        @*Вывод таблицы за месяц*@
+
+        <p class="font-italic mt-5">Записи из базы данных за текущий месяц</p>
+
+        <table class="table table-striped table-bordered">
+            <thead class="table-info">
+                <tr>
+                    <th scope="col" class="text-center">Наименование</th>
+                    <th scope="col" class="text-center">Сумма, руб</th>
+                    <th scope="col" class="text-center">Примечание</th>
+                    <th scope="col" class="text-center">Дата</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var item in collections)
+                {
+                    if (item.CreatedDate.Month == DateTime.Now.Month)
+                    {
+                        <tr class="table-sm">
+                            <td class="text-center">@item.Name</td>
+                            <td class="text-center">@item.Summ</td>
+                            <td class="text-center">@item.Description</td>
+                            <td class="text-center">@item.CreatedDate.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td class="text-center"><button class="btn btn-outline-danger btn-sm" @onclick="(() => DeleteProfit(item.Id))">Удалить</button></td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        <div class="alert alert-success col-2 text-center mt-4"><strong>Итого, руб: @totalSumMonth</strong></div>
+
+
+        @*Вызов таблицы за год*@
+        <button class="btn btn-primary mt-5 mb-4" @onclick="(() => { totalSumYearShow = true; TotalSumYear();})">Выгрузить записи за текущий год</button>
+
+        @if (totalSumYearShow)
+        {
+            <p class="font-italic mt-3">Записи из базы данных за текущий год</p>
+            <table class="table table-striped table-bordered">
+                <thead class="table-info">
+                    <tr>
+                        <th scope="col" class="text-center">Наименование</th>
+                        <th scope="col" class="text-center">Сумма, руб</th>
+                        <th scope="col" class="text-center">Примечание</th>
+                        <th scope="col" class="text-center">Дата</th>
+                        <th></th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var item in collections)
+                    {
+                        if (item.CreatedDate.Year == DateTime.Now.Year)
+                        {
+                            <tr class="table-sm">
+                                <td class="text-center">@item.Name</td>
+                                <td class="text-center">@item.Summ</td>
+                                <td class="text-center">@item.Description</td>
+                                <td class="text-center">@item.CreatedDate.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td class="text-center"><button class="btn btn-outline-danger btn-sm" @onclick="(() => DeleteProfit(item.Id))">Удалить</button></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+
+            <div class="alert alert-success col-2 text-center mt-4"><strong>Итого, руб: @totalSumYear</strong></div>
+        }
+    </div>
+
+    <VerificationDeleteModal @ref="verificationDeleteModal" OnCancelParameter="OnCancelMethod" OnConfirmParameter="(() => { OnConfirmMethod(); TotalSumMonth(); TotalSumYear(); })" />
+</div>
+
+
+@code {
+    private IEnumerable<Profit> collections = Array.Empty<Profit>();
+
+    private string name = string.Empty;
+    private double summ;
+    private string description = string.Empty;
+
+    private string textError = string.Empty;
+    private double totalSumMonth;
+
+
+    protected override void OnInitialized()
+    {
+        collections = iprofit.GetAllProfits();
+
+        TotalSumMonth();
+    }
+
+
+    private void AddProfit()
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            textError = "Запись не сохранена, заполнение поля 'Статья дохода' обязательно!";
+        }
+        else if (summ == 0)
+        {
+            textError = "Запись не сохранена, заполнение поля 'Сумма' обязательно!";
+        }
+        else
+        {
+            Profit newProfit = new Profit()
+                {
+                    Name = name,
+                    Summ = summ,
+                    Description = description
+                };
+
+            iprofit.AddProfit(newProfit);
+            textError = string.Empty;
+        }
+
+        name = string.Empty;
+        summ = 0;
+        description = string.Empty;
+    }
+
+
+    private void DeleteProfit(int id)
+    {
+        idDelete = id;
+        verificationDeleteModal.Show();
+    }
+
+
+    private void TotalSumMonth()
+    {
+        totalSumMonth = 0;
+
+        foreach (var item in collections)
+        {
+            if (item.CreatedDate.Month == DateTime.Now.Month)
+            {
+                totalSumMonth += item.Summ;
+            }
+        }
+    }
+
+
+    //Вызов таблицы за год
+
+    private bool totalSumYearShow = false;
+    private double totalSumYear;
+
+    private void TotalSumYear()
+    {
+        totalSumYear = 0;
+
+        foreach (var item in collections)
+        {
+            if (item.CreatedDate.Year == DateTime.Now.Year)
+            {
+                totalSumYear += item.Summ;
+            }
+        }
+    }
+
+
+    //Вызов VerificationDelete
+
+    VerificationDeleteModal verificationDeleteModal;
+    private int idDelete;
+
+    private void OnCancelMethod()
+    {
+        verificationDeleteModal.Hide();
+    }
+
+    private void OnConfirmMethod()
+    {
+        iprofit.DeleteProfit(idDelete);
+        verificationDeleteModal.Hide();
+    }
+}

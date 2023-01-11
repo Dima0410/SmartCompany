@@ -1,0 +1,274 @@
+﻿@page "/sale-product"
+@using System.Linq
+@inject SmartCompany.Data.Interfaces.ISale iSale
+@attribute [Authorize(Roles = "Administrator, Director, Manager")]
+
+
+<PageTitle>Сбыт продукции</PageTitle>
+
+
+<div class="container-fluid">
+
+    <h3 class="text-center mt-4">Сбыт товара</h3>
+
+    @*Ввод данных*@
+    <p class="font-italic mt-5">Внесение реализованного товара в базу данных</p>
+    <div class="alert alert-success py-4" role="alert">
+        <div class="row">
+            <div class="col">
+                <label class="form-label">Группа товара</label>
+                <select class="form-control" @bind="group">
+                    <option value="Овощи">Овощи</option>
+                    <option value="Фрукты">Фрукты</option>
+                    <option value="Прочее">Прочее</option>
+                </select>
+            </div>
+            <div class="col">
+                <label class="form-label">Наименование</label>
+                <select class="form-control" @bind="name">
+                    <option value="Картофель">Картофель</option>
+                    <option value="Лук">Лук</option>
+                    <option value="Капуста">Капуста</option>
+                    <option value="Свекла">Свекла</option>
+                    <option value="Морковь">Морковь</option>
+                    <option value="Тыква">Тыква</option>
+                    <option value="Кабачок">Кабачок</option>
+                    <option value="Яблоки">Яблоки</option>
+                    <option value="Персик">Персик</option>
+                    <option value="Абрикос">Абрикос</option>
+                    <option value="Виноград">Виноград</option>
+                    <option value="Слива">Слива</option>
+                    <option value="Прочее">Прочее</option>
+                </select>
+            </div>
+            <div class="col">
+                <label class="form-label">Цена, руб.</label>
+                <input class="form-control" placeholder="Цена, руб." @bind="price" />
+            </div>
+            <div class="col">
+                <label class="form-label">Количество, кг</label>
+                <input class="form-control" placeholder="Количество, кг" @bind="quantity" @onfocusout="TotalSum" />
+            </div>
+            <div class="col">
+                <label class="form-label">Сумма, руб.</label>
+                <input class="form-control" placeholder="Сумма, руб." @bind="summ" />
+            </div>
+            <div class="col">
+                <label class="form-label">Примечание</label>
+                <input class="form-control" @bind="description" />
+            </div>
+        </div>
+        <div class="row text-end">
+            <div class="col mt-4">
+                <button class="btn btn-primary" @onclick="(() => { AddSale(); TotalSumMonth(); TotalSumYear();})">Сохранить</button>
+            </div>
+        </div>
+    </div>
+    <p class="text-danger">@textError</p>
+
+    @*Вывод таблицы за месяц*@
+    <p class="font-italic mt-5">Записи из базы данных за текущий месяц</p>
+    <table class="table table-striped table-bordered table-responsive">
+        <thead class="table-info">
+            <tr>
+                <th scope="col" class="text-center">Группа товара</th>
+                <th scope="col" class="text-center">Наименование</th>
+                <th scope="col" class="text-center">Цена, руб</th>
+                <th scope="col" class="text-center">Количество, кг</th>
+                <th scope="col" class="text-center">Сумма, руб</th>
+                <th scope="col" class="text-center">Примечание</th>
+                <th scope="col" class="text-center">Дата, время</th>
+                <th></th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach (var item in collections)
+            {
+                if (item.CreatedDate.Month == DateTime.Now.Month)
+                {
+                    <tr class="table-sm">
+                        <td class="text-center">@item.Group</td>
+                        <td class="text-center">@item.Name</td>
+                        <td class="text-center">@item.Price</td>
+                        <td class="text-center">@item.Quantity</td>
+                        <td class="text-center">@item.Summ</td>
+                        <td class="text-center">@item.Description</td>
+                        <td class="text-center">@item.CreatedDate.ToString("dd.MM.yyyy HH:mm")</td>
+                        <td class="text-center"><button class="btn btn-outline-danger btn-sm" @onclick="(() => DeleteSale(item.Id))">Удалить</button></td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <div class="alert alert-success col-2 text-center mt-4"><strong>Итого, руб: @totalSumMonth</strong></div>
+
+
+    @*Вызов таблицы за год*@
+    <button class="btn btn-primary mt-5 mb-4" @onclick="(() => { totalSumYearShow = true; TotalSumYear();})">Выгрузить записи за текущий год</button>
+
+    @if (totalSumYearShow)
+    {
+        <p class="font-italic mt-3">Записи из базы данных за текущий год</p>
+        <table class="table table-striped table-bordered table-responsive">
+            <thead class="table-info">
+                <tr>
+                    <th scope="col" class="text-center">Группа товара</th>
+                    <th scope="col" class="text-center">Наименование</th>
+                    <th scope="col" class="text-center">Цена, руб</th>
+                    <th scope="col" class="text-center">Количество, кг</th>
+                    <th scope="col" class="text-center">Сумма, руб</th>
+                    <th scope="col" class="text-center">Примечание</th>
+                    <th scope="col" class="text-center">Дата, время</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var item in collections)
+                {
+                    if (item.CreatedDate.Year == DateTime.Now.Year)
+                    {
+                        <tr class="table-sm">
+                            <td class="text-center">@item.Group</td>
+                            <td class="text-center">@item.Name</td>
+                            <td class="text-center">@item.Price</td>
+                            <td class="text-center">@item.Quantity</td>
+                            <td class="text-center">@item.Summ</td>
+                            <td class="text-center">@item.Description</td>
+                            <td class="text-center">@item.CreatedDate.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td class="text-center"><button class="btn btn-outline-danger btn-sm" @onclick="(() => DeleteSale(item.Id))">Удалить</button></td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+
+        <div class="alert alert-success col-2 text-center mt-4"><strong>Итого, руб: @totalSumYear</strong></div>
+    }
+
+    <VerificationDeleteModal @ref="verificationDeleteModal" OnCancelParameter="OnCancelMethod" OnConfirmParameter="(() => { OnConfirmMethod(); TotalSumMonth(); TotalSumYear(); })" />
+</div>
+
+@code {
+    private IEnumerable<Sale> collections = Array.Empty<Sale>();
+
+    private string group = string.Empty;
+    private string name = string.Empty;
+    private double price;
+    private int quantity;
+    private double summ;
+    private string description = string.Empty;
+
+    private string textError = string.Empty;
+    private double totalSumMonth;
+
+
+    protected override void OnInitialized()
+    {
+        collections = iSale.GetAllSales();
+
+        TotalSumMonth();
+    }
+
+
+    private void AddSale()
+    {
+        if (string.IsNullOrWhiteSpace(group))
+        {
+            textError = "Запись не сохранена, заполнение поля 'Группа товара' обязательно!";
+        }
+        else if (string.IsNullOrWhiteSpace(name))
+        {
+            textError = "Запись не сохранена, заполнение поля 'Наименование' обязательно!";
+        }
+        else
+        {
+            Sale newSale = new Sale()
+                {
+                    Group = group,
+                    Name = name,
+                    Price = price,
+                    Quantity = quantity,
+                    Summ = summ,
+                    Description = description
+                };
+
+            iSale.AddSale(newSale);
+            textError = string.Empty;
+        }
+
+        group = string.Empty;
+        name = string.Empty;
+        price = 0;
+        quantity = 0;
+        summ = 0;
+        description = string.Empty;
+    }
+
+
+    private void DeleteSale(int id)
+    {
+        idDelete = id;
+        verificationDeleteModal.Show();
+    }
+
+
+    void TotalSum()
+    {
+        summ = price * quantity;
+    }
+
+
+    private void TotalSumMonth()
+    {
+        totalSumMonth = 0;
+
+        foreach (var item in collections)
+        {
+            if (item.CreatedDate.Month == DateTime.Now.Month)
+            {
+                totalSumMonth += item.Summ;
+            }
+        }
+    }
+
+
+    //Вызов таблицы за год
+
+    private bool totalSumYearShow = false;
+    private double totalSumYear;
+
+    private void TotalSumYear()
+    {
+        totalSumYear = 0;
+
+        foreach (var item in collections)
+        {
+            if (item.CreatedDate.Year == DateTime.Now.Year)
+            {
+                totalSumYear += item.Summ;
+            }
+        }
+    }
+
+
+    //Вызов VerificationDelete
+
+    VerificationDeleteModal verificationDeleteModal;
+    int idDelete;
+
+    void OnCancelMethod()
+    {
+        verificationDeleteModal.Hide();
+    }
+
+    void OnConfirmMethod()
+    {
+        iSale.DeleteSale(idDelete);
+        verificationDeleteModal.Hide();
+    }
+
+}
+
